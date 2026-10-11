@@ -1,0 +1,18 @@
+{
+  "data": {
+    "id": "12ade33a-21c0-473b-b055-b3c836e1c292",
+    "record_type": "number_order",
+    "status": "pending",
+    "connection_id": "346789098765567",
+    "customer_reference": "MY REF 001",
+    "phone_numbers": [
+      {
+        "id": "f4b7c2d1-9e3a-4b5c-8d6f-0a1b2c3d4e5f",
+        "record_type": "number_order_phone_number",
+        "phone_number": "+19705555098",
+        "status": "pending",
+        "requirements_met": true
+      }
+    ]
+  }
+}

@@ -31,7 +31,9 @@ export function createMcpServer(deps: McpDeps = {}): McpServer {
     {
       description: "Preview an AI voice call. Set live true to place it.",
       inputSchema: {
-        vendor: z.enum(["dry", "vapi", "bland", "retell"]).default("dry"),
+        vendor: z
+          .enum(["dry", "vapi", "bland", "retell", "telnyx"])
+          .default("dry"),
         to: z.string(),
         script: z.string(),
         disclosure: z.string(),
@@ -41,6 +43,7 @@ export function createMcpServer(deps: McpDeps = {}): McpServer {
         phoneNumberId: z.string().optional(),
         agentId: z.string().optional(),
         voice: z.string().optional(),
+        connectionId: z.string().optional(),
         logFile: z.string().nullable().optional(),
       },
       annotations: {

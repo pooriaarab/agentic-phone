@@ -9,6 +9,7 @@ export const DEFAULT_BRAND = defineBrand({
     "ai-calls",
     "voice-agents",
     "vapi",
+    "telnyx",
     "agentic-suite",
     "claude-code",
     "codex",
@@ -23,7 +24,9 @@ export * from "./adapters/types.js";
 export * from "./adapters/vapi.js";
 export * from "./adapters/bland.js";
 export * from "./adapters/retell.js";
+export * from "./adapters/telnyx.js";
 export * from "./adapters/dry.js";
+export * from "./numbers.js";
 export {
   createLogger,
   GuardError,

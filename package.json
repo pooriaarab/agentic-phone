@@ -1,11 +1,12 @@
 {
   "name": "agentic-phone",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Place AI voice calls across vendors from CLI, SDK, or MCP.",
   "keywords": [
     "ai-calls",
     "voice-agents",
     "vapi",
+    "telnyx",
     "agentic-suite",
     "claude-code",
     "codex",

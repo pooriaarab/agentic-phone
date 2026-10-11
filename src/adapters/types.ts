@@ -1,5 +1,5 @@
 import type { Logger } from "agentic-core";
-export type CallVendor = "dry" | "vapi" | "bland" | "retell";
+export type CallVendor = "dry" | "vapi" | "bland" | "retell" | "telnyx";
 export interface CallInput {
   to: string;
   script: string;
@@ -9,6 +9,7 @@ export interface CallInput {
   phoneNumberId?: string;
   agentId?: string;
   voice?: string;
+  connectionId?: string;
 }
 export interface AdapterContext {
   fetchFn?: typeof fetch;

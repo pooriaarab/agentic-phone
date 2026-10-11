@@ -8,6 +8,7 @@ import {
   VendorError,
 } from "agentic-core";
 import { placeCall, type CallRequest } from "./phone.js";
+import { provisionTelnyxNumber } from "./numbers.js";
 import { readConsentLog } from "./consent.js";
 import { VERSION } from "./version.js";
 export class UsageError extends Error {
@@ -17,8 +18,12 @@ export class UsageError extends Error {
   }
 }
 export interface CliRequest extends Partial<CallRequest> {
-  command: "call" | "log" | "costs" | "mcp" | "help" | "version";
+  command: "call" | "provision" | "log" | "costs" | "mcp" | "help" | "version";
   file?: string;
+  number?: string;
+  customerReference?: string;
+  messagingProfileId?: string;
+  billingGroupId?: string;
 }
 const flags = {
   "--vendor": "vendor",
@@ -31,8 +36,20 @@ const flags = {
   "--phone-number-id": "phoneNumberId",
   "--agent": "agentId",
   "--voice": "voice",
+  "--connection-id": "connectionId",
+  "--number": "number",
+  "--customer-reference": "customerReference",
+  "--messaging-profile-id": "messagingProfileId",
+  "--billing-group-id": "billingGroupId",
   "--log-file": "logFile",
 } as const;
+const provisionFlags = new Set([
+  "--number",
+  "--connection-id",
+  "--customer-reference",
+  "--messaging-profile-id",
+  "--billing-group-id",
+]);
 export function parseArgs(argv: string[]): CliRequest {
   const args = [...argv];
   const first = args.shift() ?? "help";
@@ -42,7 +59,11 @@ export function parseArgs(argv: string[]): CliRequest {
       : first === "--version" || first === "-V"
         ? "version"
         : first;
-  if (!["call", "log", "costs", "mcp", "help", "version"].includes(command))
+  if (
+    !["call", "provision", "log", "costs", "mcp", "help", "version"].includes(
+      command,
+    )
+  )
     throw new UsageError(`unknown command "${first}"`);
   const req: CliRequest = {
     command: command as CliRequest["command"],
@@ -51,13 +72,15 @@ export function parseArgs(argv: string[]): CliRequest {
   };
   while (args.length) {
     const flag = args.shift()!;
-    if (flag === "--live" && command === "call") {
+    if (flag === "--live" && (command === "call" || command === "provision")) {
       req.live = true;
       continue;
     }
     if (
       !(flag in flags) ||
-      (command !== "call" && !(command === "log" && flag === "--log-file"))
+      (command === "log" && flag !== "--log-file") ||
+      (command === "provision" && !provisionFlags.has(flag)) ||
+      (command !== "call" && command !== "log" && command !== "provision")
     )
       throw new UsageError(`unknown flag "${flag}"`);
     const value = args.shift();
@@ -65,7 +88,7 @@ export function parseArgs(argv: string[]): CliRequest {
       throw new UsageError(`${flag} needs a value`);
     Object.assign(req, { [flags[flag as keyof typeof flags]]: value });
   }
-  if (!["dry", "vapi", "bland", "retell"].includes(req.vendor!))
+  if (!["dry", "vapi", "bland", "retell", "telnyx"].includes(req.vendor!))
     throw new UsageError("invalid vendor");
   if (command === "call") {
     if (!req.to || !req.disclosure || (!req.script && !req.file))
@@ -74,6 +97,9 @@ export function parseArgs(argv: string[]): CliRequest {
       );
     if (req.script && req.file)
       throw new UsageError("use one of --script or --file");
+  }
+  if (command === "provision") {
+    if (!req.number) throw new UsageError("provision needs --number");
   }
   return req;
 }
@@ -90,7 +116,7 @@ const defaultIo: CliIo = {
   readFile: (path) => readFileSync(path, "utf8"),
 };
 export function helpText(): string {
-  return `Agentic phone ${VERSION}\nPlace AI voice calls across vendors from CLI, SDK, or MCP.\n\nUsage: agentic-phone <command> [flags]\nCommands: call, log, costs, mcp, help, version\ncall --to <E.164> --script <text> | --file <path> --disclosure <line>\n  --vendor <dry|vapi|bland|retell> --live --from <number>\n  --assistant <id> --phone-number-id <id> --agent <id> --voice <name>\n  --log-file <path>\nlog [--log-file <path>]\ncosts: Print session cost JSON.\nmcp: Start MCP on stdio.\n--help, -h: Print help.\n--version, -V: Print version.`;
+  return `Agentic phone ${VERSION}\nPlace AI voice calls across vendors from CLI, SDK, or MCP.\n\nUsage: agentic-phone <command> [flags]\nCommands: call, provision, log, costs, mcp, help, version\ncall --to <E.164> --script <text> | --file <path> --disclosure <line>\n  --vendor <dry|vapi|bland|retell|telnyx> --live --from <number>\n  --assistant <id> --phone-number-id <id> --agent <id> --voice <name>\n  --connection-id <id> --log-file <path>\nprovision --number <E.164> [--live] [--connection-id <id>]\n  [--customer-reference <ref>] [--messaging-profile-id <id>]\n  [--billing-group-id <id>]\nlog [--log-file <path>]\ncosts: Print session cost JSON.\nmcp: Start MCP on stdio.\n--help, -h: Print help.\n--version, -V: Print version.`;
 }
 export async function runCli(
   argv: string[],
@@ -121,6 +147,23 @@ export async function runCli(
         break;
       case "mcp":
         await (await import("./mcp.js")).startMcp();
+        break;
+      case "provision":
+        io.out(
+          JSON.stringify(
+            await provisionTelnyxNumber({
+              numbers: [req.number!],
+              connectionId: req.connectionId,
+              customerReference: req.customerReference,
+              messagingProfileId: req.messagingProfileId,
+              billingGroupId: req.billingGroupId,
+              live: req.live,
+              logger: createLogger({ quiet: true }),
+              now: io.now,
+              fetchFn: io.fetchFn,
+            }),
+          ),
+        );
         break;
       case "call":
         io.out(

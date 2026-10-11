@@ -86,3 +86,38 @@ test("domain failures exit 1 with name", async () => {
   expect(await runCli([...args, "--disclosure", " "], fake)).toBe(1);
   expect(fake.err.mock.calls[1][0]).toContain("GuardError:");
 });
+test("telnyx vendor parses for calls", () => {
+  expect(
+    parseArgs([...args, "--vendor", "telnyx", "--connection-id", "conn"]),
+  ).toMatchObject({
+    command: "call",
+    vendor: "telnyx",
+    connectionId: "conn",
+  });
+});
+test("provision previews by default", async () => {
+  const fake = { ...io(), fetchFn: vi.fn() };
+  expect(
+    await runCli(["provision", "--number", "+19705555098"], fake),
+  ).toBe(0);
+  expect(JSON.parse(fake.out.mock.calls[0][0])).toMatchObject({
+    dryRun: true,
+    numbers: ["+19705555098"],
+  });
+  expect(fake.fetchFn).not.toHaveBeenCalled();
+});
+test("provision parse errors exit 2", async () => {
+  for (const argv of [
+    ["provision"],
+    ["provision", "--number", "+19705555098", "--to", "+12025550123"],
+    ["provision", "--number", "+19705555098", "--log-file", "log"],
+  ]) {
+    expect(() => parseArgs(argv)).toThrow(UsageError);
+    expect(await runCli(argv, io())).toBe(2);
+  }
+});
+test("provision rejects bad numbers with exit 1", async () => {
+  const fake = io();
+  expect(await runCli(["provision", "--number", "bad"], fake)).toBe(1);
+  expect(fake.err.mock.calls[0][0]).toContain("VendorError:");
+});

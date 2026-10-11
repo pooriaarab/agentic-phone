@@ -48,11 +48,13 @@ Set keys through your shell or secret store.
 | Vapi | VAPI_API_KEY | --assistant, --phone-number-id |
 | Bland | BLAND_API_KEY | No extra required options |
 | Retell | RETELL_API_KEY | --from |
+| Telnyx | TELNYX_API_KEY | --from, --connection-id |
 
 ```sh
 npx agentic-phone call --vendor bland --live --to +12025550123 --script "Your order is ready." --disclosure "I am an AI assistant."
 npx agentic-phone call --vendor vapi --live --to +12025550123 --assistant assistant-id --phone-number-id number-id --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
 npx agentic-phone call --vendor retell --live --from +12025550124 --to +12025550123 --agent agent-id --script "Thank you for attending." --disclosure "I am an AI assistant."
+npx agentic-phone call --vendor telnyx --live --from +12025550124 --connection-id connection-id --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
 ```
 
 Bland sends the disclosure before the task script.
@@ -89,6 +91,33 @@ Vapi `phoneNumberId` can select a Twilio-imported number.
 Retell uses `from_number`, set by `--from` or SDK `from`.
 Bland uses `from`, set by the same option.
 Configure the number with the vendor before a live call.
+
+## Telnyx
+
+Telnyx places direct carrier calls through a Call Control connection.
+It uses the same call shape, guards, consent log, and dry-run default.
+Set `TELNYX_API_KEY` in the environment before a live call.
+Pass `--from` and `--connection-id` with every Telnyx call.
+
+Use case 1: send an appointment reminder from your Telnyx number.
+Preview the call first. Add `--live` only after the preview looks right.
+
+```sh
+npx agentic-phone call --vendor telnyx --from +12025550124 --connection-id connection-id --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
+npx agentic-phone call --vendor telnyx --live --from +12025550124 --connection-id connection-id --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
+```
+
+Use case 2: order a new Telnyx number, then call from it.
+Preview the order first. It costs nothing until you add `--live`.
+
+```sh
+npx agentic-phone provision --number +19705555098
+npx agentic-phone provision --live --number +19705555098 --connection-id connection-id
+npx agentic-phone call --vendor telnyx --live --from +19705555098 --connection-id connection-id --to +12025550123 --script "Your order is ready." --disclosure "I am an AI assistant."
+```
+
+The SDK exposes `provisionTelnyxNumber` with the same options.
+A live order returns the Telnyx order ID for status tracking.
 
 ## MCP
 
