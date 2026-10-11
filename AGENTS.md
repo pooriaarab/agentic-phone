@@ -11,6 +11,7 @@ Honor UTC day hours, caps, and the blocklist.
 Keep vendor failures visible. Never claim a failed call succeeded.
 
 MCP tools: place_call, get_consent_log, get_cost_report.
+Telnyx uses TELNYX_API_KEY with --from and --connection-id; order numbers with provision first.
 Use place_call for a preview first.
 Read the consent log and cost report after dispatch.
 Run build, typecheck, and tests before committing changes.

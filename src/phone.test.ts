@@ -5,6 +5,9 @@ import { afterEach, expect, test, vi } from "vitest";
 import { createLogger, getCostReport, resetCosts } from "agentic-core";
 import { placeCall, createCallGuards } from "./phone.js";
 import { appendConsentLog, readConsentLog } from "./consent.js";
+import dialFixture from "./adapters/fixtures/telnyx-dial.json" with {
+  type: "json",
+};
 const now = () => new Date("2026-10-11T10:00:00Z");
 const req = {
   to: "+12025550123",
@@ -144,6 +147,48 @@ test("failed dispatch records no cost and null disables consent", async () => {
       })
     ).dryRun,
   ).toBe(false);
+});
+test("telnyx preview needs no key and live logs consent", async () => {
+  const preview = await placeCall({
+    ...req,
+    vendor: "telnyx",
+    fetchFn: vi.fn(),
+  });
+  expect(preview).toMatchObject({ dryRun: true, vendor: "telnyx" });
+  vi.stubEnv("TELNYX_API_KEY", "key");
+  const dir = await mkdtemp(join(tmpdir(), "phone-"));
+  const logFile = join(dir, "log");
+  const guards = createCallGuards({ now });
+  try {
+    const receipt = await placeCall({
+      ...req,
+      vendor: "telnyx",
+      live: true,
+      from: "+12025550124",
+      connectionId: "connection",
+      guards,
+      logFile,
+      fetchFn: vi.fn().mockResolvedValue(Response.json(dialFixture)),
+    });
+    expect(receipt).toMatchObject({
+      dryRun: false,
+      vendor: "telnyx",
+      callId: dialFixture.data.call_control_id,
+    });
+    expect(guards.dispatchCount).toBe(1);
+    expect(getCostReport().units).toBe(1);
+    expect(await readConsentLog(logFile)).toEqual([
+      {
+        at: receipt.at,
+        to: receipt.to,
+        vendor: receipt.vendor,
+        callId: receipt.callId,
+        disclosure: receipt.disclosure,
+      },
+    ]);
+  } finally {
+    await rm(dir, { recursive: true });
+  }
 });
 test("apiKey option reaches the vendor adapter", async () => {
   vi.stubEnv("BLAND_API_KEY", "");

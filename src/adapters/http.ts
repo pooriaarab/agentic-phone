@@ -33,7 +33,15 @@ export async function postCall(
   } catch (cause) {
     throw new VendorError(`${name}: invalid response`, { cause });
   }
-  const id = data?.[idField];
+  const id = idField
+    .split(".")
+    .reduce<unknown>(
+      (node, key) =>
+        typeof node === "object" && node !== null
+          ? (node as Record<string, unknown>)[key]
+          : undefined,
+      data,
+    );
   if (typeof id !== "string" || !id.trim())
     throw new VendorError(`${name}: response has no id`);
   return id;

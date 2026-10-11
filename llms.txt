@@ -1,9 +1,9 @@
 # Agentic phone
 
 Place AI voice calls across vendors from CLI, SDK, or MCP.
-Package: agentic-phone 0.1.0. Node.js >=18. MIT.
+Package: agentic-phone 0.2.0. Node.js >=18. MIT.
 SDK: placeCall, createCallGuards, vendor adapters, consent log helpers.
-CLI: call, log, costs, mcp, help, version.
+CLI: call, provision, log, costs, mcp, help, version.
 MCP: place_call, get_consent_log, get_cost_report.
 Preview is the default. Live needs a live flag and an environment API key.
 Every call needs an AI disclosure and an E.164 destination.

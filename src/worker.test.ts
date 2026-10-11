@@ -3,7 +3,7 @@ import worker from "./worker.js";
 import { VERSION } from "./version.js";
 afterEach(() => vi.useRealTimers());
 test("health and version", async () => {
-  expect(VERSION).toBe("0.1.0");
+  expect(VERSION).toBe("0.2.0");
   expect(
     await (await worker.fetch(new Request("https://phone/health"))).json(),
   ).toEqual({ ok: true, pack: "agentic-phone", version: VERSION });

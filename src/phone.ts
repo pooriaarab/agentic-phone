@@ -11,6 +11,7 @@ import {
 import { BlandAdapter } from "./adapters/bland.js";
 import { DryAdapter } from "./adapters/dry.js";
 import { RetellAdapter } from "./adapters/retell.js";
+import { TelnyxAdapter } from "./adapters/telnyx.js";
 import { VapiAdapter } from "./adapters/vapi.js";
 import type {
   AdapterOptions,
@@ -71,6 +72,7 @@ export async function placeCall(req: CallRequest): Promise<CallReceipt> {
     vapi: new VapiAdapter(adapterOptions),
     bland: new BlandAdapter(adapterOptions),
     retell: new RetellAdapter(adapterOptions),
+    telnyx: new TelnyxAdapter(adapterOptions),
   };
   if (!Object.hasOwn(adapters, vendor)) {
     throw new VendorError("Unknown call vendor");
