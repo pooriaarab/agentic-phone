@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "agentic-phone": {
+      "command": "npx",
+      "args": [
+        "agentic-phone",
+        "mcp"
+      ]
+    }
+  }
+}
