@@ -1,9 +1,13 @@
+import { createRequire } from "node:module";
 import { afterEach, expect, test, vi } from "vitest";
 import worker from "./worker.js";
 import { VERSION } from "./version.js";
 afterEach(() => vi.useRealTimers());
 test("health and version", async () => {
-  expect(VERSION).toBe("0.2.0");
+  const require = createRequire(import.meta.url);
+  expect(VERSION).toBe(
+    (require("../package.json") as { version: string }).version,
+  );
   expect(
     await (await worker.fetch(new Request("https://phone/health"))).json(),
   ).toEqual({ ok: true, pack: "agentic-phone", version: VERSION });
