@@ -1,17 +1,20 @@
 {
   "name": "agentic-phone",
   "version": "0.2.0",
-  "description": "Place AI voice calls across vendors from CLI, SDK, or MCP.",
+  "description": "Preview and dispatch AI phone calls through Vapi, Bland AI, Retell AI, and Telnyx with a TypeScript SDK, CLI, and MCP server.",
   "keywords": [
-    "ai-calls",
+    "ai-phone-calls",
     "voice-agents",
     "vapi",
+    "bland-ai",
+    "retell-ai",
     "telnyx",
-    "agentic-suite",
-    "claude-code",
-    "codex",
+    "typescript",
+    "nodejs",
     "cli",
-    "mcp"
+    "mcp",
+    "dry-run",
+    "call-control"
   ],
   "license": "MIT",
   "author": "Pooria Arab",

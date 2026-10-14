@@ -1,28 +1,26 @@
-# Agentic phone
+# agentic-phone
 
-Place AI voice calls across vendors from CLI, SDK, or MCP.
+[![npm version](https://img.shields.io/npm/v/agentic-phone)](https://www.npmjs.com/package/agentic-phone)
+[![Monthly downloads](https://img.shields.io/npm/dm/agentic-phone)](https://www.npmjs.com/package/agentic-phone)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/license/mit)
+
+[Package](https://www.npmjs.com/package/agentic-phone) · [Setup](#send-your-first-call-preview) · [API and commands](#runtime-surfaces) · [Comparisons](#compare) · [llms.txt](https://github.com/pooriaarab/agentic-phone/blob/main/llms.txt)
+
+agentic-phone is an open-source phone dispatch toolkit for developers who use AI voice vendors.
+It exposes a TypeScript software development kit (SDK), command-line interface (CLI), and Model Context Protocol (MCP) server.
+Previews run locally; live requests use your vendor account.
 
 ## Install
-
-Use Node.js 18 or later.
 
 ```sh
 npm install agentic-phone
 ```
 
-## Quickstart
+Use Node.js 18 or later. The package includes TypeScript declarations and has three direct runtime dependencies.
 
-Preview is the default. No key is needed for a preview.
-Use an E.164 phone number and a clear AI disclosure line.
-Calls pass the day hours guard, including previews.
+## Send your first call preview
 
-```sh
-npx agentic-phone call --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
-npx agentic-phone log
-npx agentic-phone costs
-```
-
-Use the SDK with the same inputs.
+Save this as `preview.mjs`, then run `node preview.mjs`. No credentials or environment variables are required.
 
 ```js
 import { placeCall } from 'agentic-phone';
@@ -31,118 +29,181 @@ const receipt = await placeCall({
   to: '+12025550123',
   script: 'Your appointment is tomorrow.',
   disclosure: 'I am an AI assistant.',
+  now: () => new Date('2026-10-14T12:00:00Z'),
 });
-console.log(receipt);
+console.log(receipt.dryRun, receipt.callId);
 ```
 
-Use calls for appointment reminders, order status callbacks,
-and event follow-ups.
+Expect `true` and a `dry-` call ID. This preview uses a fixed daytime clock and places no call.
+Omit `now` for normal use. Default guards permit dispatch from 08:00 inclusive to 20:00 exclusive UTC, including previews.
 
-## Live calls and keys
-
-A live call needs `--live`, a vendor, and its API key in the environment.
-Set keys through your shell or secret store.
-
-| Vendor | Environment key | Required call options |
-| --- | --- | --- |
-| Vapi | VAPI_API_KEY | --assistant, --phone-number-id |
-| Bland | BLAND_API_KEY | No extra required options |
-| Retell | RETELL_API_KEY | --from |
-| Telnyx | TELNYX_API_KEY | --from, --connection-id |
+During those hours, try the CLI:
 
 ```sh
+npx agentic-phone call --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
+```
+
+## How it works
+
+```text
+SDK / CLI / MCP -> validation + guards -> dry preview
+                                     -> vendor API -> receipt + local disclosure log
+```
+
+## Why it exists
+
+Vapi and Retell AI provide their own voice platforms and APIs.
+agentic-phone puts outbound dispatch behind one request shape, with local previews and shared guards.
+Vendor assistants, phone numbers, and accounts remain your responsibility.
+
+## Compare
+
+Scope checked on 2026-10-14 against [Vapi documentation](https://docs.vapi.ai/quickstart/introduction) and [Retell AI documentation](https://docs.retellai.com/general/introduction).
+
+| Aspect | agentic-phone | Vapi | Retell AI |
+| --- | --- | --- | --- |
+| Scope | Local dispatch wrapper | Voice agent platform | Voice and chat agent platform |
+| Configuration | TypeScript or CLI flags | Vendor assistant configuration | Vendor agent configuration |
+| Execution | Local code calls vendor APIs | Vendor service | Vendor service |
+
+## Coverage
+
+| Adapter | Implemented dispatch | Key | Required vendor fields | Speech behavior |
+| --- | --- | --- | --- | --- |
+| Vapi | ✓ | `VAPI_API_KEY` | `assistantId`, `phoneNumberId` | Stored assistant; request script and disclosure are not forwarded |
+| Bland AI | ✓ | `BLAND_API_KEY` | None beyond common inputs | Disclosure prepended to task; recording requested |
+| Retell AI | ✓ | `RETELL_API_KEY` | `from` | Stored agent; disclosure sent as metadata, script not forwarded |
+| Telnyx | ✓ | `TELNYX_API_KEY` | `from`, `connectionId` | Dial only; script and disclosure are not forwarded |
+| Dry | Local preview | None | None | No network request |
+
+The dispatcher contains four live adapters and one dry adapter. None are scaffold-only.
+Tests exercise mocked responses; this rewrite includes zero credential-checked integrations.
+A returned call ID confirms dispatch acceptance, not an answered call or spoken disclosure.
+Twilio is not a direct adapter. Vapi can reference a Twilio-imported number through `phoneNumberId`.
+
+## Common use cases
+
+1. Appointment developers: preview reminder requests before dispatch through a configured Vapi assistant.
+2. Store operators: submit order-ready tasks through Bland AI with an AI disclosure.
+3. Event teams: trigger follow-up calls through an existing Retell AI agent.
+4. Telephony developers: preview Telnyx number orders and dial through a Call Control connection.
+
+## Features
+
+- Local previews return structured receipts without vendor credentials.
+- Shared guards accept caps, a blocklist, quiet hours, and a clock.
+- Successful live dispatch appends a local JSON Lines disclosure record.
+- Session cost reports count dispatch units rather than vendor billing amounts.
+- Telnyx number provisioning supports preview and live order requests.
+
+## Runtime surfaces
+
+The SDK exports `placeCall`, `createCallGuards`, `provisionTelnyxNumber`, vendor adapters, consent helpers, and core logging and cost helpers.
+The SDK uses Node.js filesystem APIs for its local log.
+CLI commands are `call`, `provision`, `log`, `costs`, `mcp`, `help`, and `version`.
+Use `--help` or `-h` for flags; `--version` or `-V` prints the version.
+`call` accepts either `--script` or `--file`.
+
+Start the stdio MCP server with `npx agentic-phone mcp` or `npx --package agentic-phone agentic-phone-mcp`.
+Its three tools are `place_call`, `get_consent_log`, and `get_cost_report`.
+The source Worker exposes `GET /health` and preview-only `POST /preview`; it has no live dispatch route.
+
+## Delivery and behavior limits
+
+A live call requires explicit recipient-call authorization, a vendor key, a non-dry vendor, and `live: true` or `--live`.
+The package checks a nonblank disclosure field, not legal consent or whether the recipient hears it.
+Configure Vapi and Retell AI agents to speak the disclosure. Telnyx speech needs separate Call Control commands.
+Requests time out after ten seconds. The HTTP helper has no automatic retry or deduplication.
+Check vendor state before retrying an uncertain dispatch.
+
+Reuse a `createCallGuards` instance to enforce caps across SDK calls.
+Previews do not increment caps or costs. Costs are process-local; a separate CLI process does not retain dispatch totals.
+The default log is `./consent-log.jsonl` in the current directory.
+Choose `--log-file` or SDK `logFile`; SDK `logFile: null` disables logging.
+A log write can fail after the vendor accepts a call. The log does not prove recipient consent.
+
+## Integration guides
+
+Export keys in your shell or secret store. The package does not load `.env` files automatically.
+
+```sh
+export BLAND_API_KEY='your-key'
+# Run only after authorizing the live call and reviewing a preview.
 npx agentic-phone call --vendor bland --live --to +12025550123 --script "Your order is ready." --disclosure "I am an AI assistant."
-npx agentic-phone call --vendor vapi --live --to +12025550123 --assistant assistant-id --phone-number-id number-id --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
-npx agentic-phone call --vendor retell --live --from +12025550124 --to +12025550123 --agent agent-id --script "Thank you for attending." --disclosure "I am an AI assistant."
-npx agentic-phone call --vendor telnyx --live --from +12025550124 --connection-id connection-id --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
+npx agentic-phone log
 ```
 
-Bland sends the disclosure before the task script.
-For Vapi, configure the selected assistant to speak the disclosure.
-For Retell, configure the agent to speak the disclosure from metadata.
-Vapi uses the stored assistant script. Retell uses the stored agent script.
-The request script is checked by the pack guards in all cases.
+Vapi CLI calls require `--assistant` and `--phone-number-id`.
+Retell AI requires `--from`; `--agent` selects an override agent.
+Telnyx requires `--from` and `--connection-id`.
+Bland AI accepts `--from` and `--voice`.
+Adapters and `placeCall` also accept an SDK `apiKey` override.
 
-Adapters also accept an `apiKey` constructor option for direct SDK use.
-`placeCall` accepts an `apiKey` option too, and falls back to the environment.
-
-## Guards and consent
-
-Every request needs a non-blank AI disclosure line.
-Default day hours are 08:00 inclusive to 20:00 exclusive UTC.
-A denied call throws `GuardError`.
-`createCallGuards` accepts caps, a blocklist, quiet hours, and a clock.
-Reuse a guard instance to enforce a cap across calls.
-Preview does not count toward the cap or cost report.
-Costs count dispatched calls, not vendor billing amounts.
-
-Each successful live call appends a consent record to
-`./consent-log.jsonl`, resolved from the current working location.
-The record has the time, destination, vendor, call ID, and disclosure.
-Use `--log-file` or the SDK `logFile` option to select a file.
-SDK callers can set `logFile: null` to disable the write.
-The log records the submitted disclosure. It does not prove recipient consent.
-If the log write fails after dispatch, the call already exists.
-Check the vendor before you retry a failed request.
-
-## Twilio-backed numbers
-
-Vapi `phoneNumberId` can select a Twilio-imported number.
-Retell uses `from_number`, set by `--from` or SDK `from`.
-Bland uses `from`, set by the same option.
-Configure the number with the vendor before a live call.
-
-## Telnyx
-
-Telnyx places direct carrier calls through a Call Control connection.
-It uses the same call shape, guards, consent log, and dry-run default.
-Set `TELNYX_API_KEY` in the environment before a live call.
-Pass `--from` and `--connection-id` with every Telnyx call.
-
-Use case 1: send an appointment reminder from your Telnyx number.
-Preview the call first. Add `--live` only after the preview looks right.
-
-```sh
-npx agentic-phone call --vendor telnyx --from +12025550124 --connection-id connection-id --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
-npx agentic-phone call --vendor telnyx --live --from +12025550124 --connection-id connection-id --to +12025550123 --script "Your appointment is tomorrow." --disclosure "I am an AI assistant."
-```
-
-Use case 2: order a new Telnyx number, then call from it.
-Preview the order first. It costs nothing until you add `--live`.
+Preview a Telnyx number order:
 
 ```sh
 npx agentic-phone provision --number +19705555098
-npx agentic-phone provision --live --number +19705555098 --connection-id connection-id
-npx agentic-phone call --vendor telnyx --live --from +19705555098 --connection-id connection-id --to +12025550123 --script "Your order is ready." --disclosure "I am an AI assistant."
 ```
 
-The SDK exposes `provisionTelnyxNumber` with the same options.
-A live order returns the Telnyx order ID for status tracking.
+Expect `dryRun: true` and a `dry-order-` ID.
+Add `--live` only after authorizing the purchase and setting `TELNYX_API_KEY`.
+The SDK `provisionTelnyxNumber` accepts a `numbers` array and returns an order ID; it does not poll order status.
 
-## MCP
+- [Vapi voice assistant setup](https://docs.vapi.ai/quickstart/introduction)
+- [Retell AI agent setup](https://docs.retellai.com/general/introduction)
 
-Start the stdio server with either command.
+## Status
 
-```sh
-npx agentic-phone mcp
-npx --package agentic-phone agentic-phone-mcp
-```
+Version 0.2.0 is pre-1.0; interfaces can change.
+[Report issues](https://github.com/pooriaarab/agentic-phone/issues) with reproducible inputs and redacted credentials.
+Public case studies are not yet published in this repository.
 
-```json
-{
-  "mcpServers": {
-    "agentic-phone": {
-      "command": "npx",
-      "args": ["agentic-phone", "mcp"]
-    }
-  }
-}
-```
+## FAQ
 
-Tools are `place_call`, `get_consent_log`, and `get_cost_report`.
-`place_call` defaults to vendor `dry` and `live: false`.
-It accepts the same phone options as the SDK.
-Errors from guards and vendors return `isError: true`.
+### What is agentic-phone?
+
+agentic-phone is a local SDK, CLI, and MCP server for outbound phone dispatch.
+It uses your vendor accounts and defaults to previews.
+
+### Which integrations are verified?
+
+agentic-phone has mocked tests for four live adapters and one dry adapter.
+This README rewrite does not verify live credentials or call completion.
+
+### Does agentic-phone provide a managed phone service?
+
+agentic-phone runs in your environment.
+You supply vendor accounts, numbers, and any voice agent configuration.
+
+### How is agentic-phone different from Vapi?
+
+agentic-phone wraps outbound dispatch across vendors.
+Vapi provides the voice assistant platform used by its adapter.
+
+### How is agentic-phone different from Retell AI?
+
+agentic-phone submits requests to an existing Retell AI setup.
+Retell AI provides the agent that conducts the conversation.
+
+### Does agentic-phone speak my script through Telnyx?
+
+agentic-phone only submits a Telnyx dial request.
+Separate Call Control commands must handle speech after dialing.
+
+### Does agentic-phone prove consent?
+
+agentic-phone records the submitted disclosure after successful live dispatch.
+That local record does not prove recipient consent or audible disclosure.
+
+### Can I preview without an API key?
+
+agentic-phone previews require no key and make no vendor request.
+Daytime guards still apply.
+
+### Does agentic-phone report vendor charges?
+
+agentic-phone counts process-local dispatch units.
+Read vendor billing for monetary charges.
 
 ## License
 
