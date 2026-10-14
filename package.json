@@ -1,6 +1,6 @@
 {
   "name": "agentic-phone",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Preview and dispatch AI phone calls through Vapi, Bland AI, Retell AI, and Telnyx with a TypeScript SDK, CLI, and MCP server.",
   "keywords": [
     "ai-phone-calls",
