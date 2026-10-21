@@ -10,6 +10,12 @@ export interface CallInput {
   agentId?: string;
   voice?: string;
   connectionId?: string;
+  firstMessage?: string;
+  maxDurationSec?: number;
+  record?: boolean;
+  clientState?: string;
+  voiceApiKeyRef?: string;
+  dynamicVariables?: Record<string, string | number | boolean>;
 }
 export interface AdapterContext {
   fetchFn?: typeof fetch;
