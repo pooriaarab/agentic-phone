@@ -166,6 +166,7 @@ test("telnyx preview needs no key and live logs consent", async () => {
       live: true,
       from: "+12025550124",
       connectionId: "connection",
+      assistantId: "assistant",
       guards,
       logFile,
       fetchFn: vi.fn().mockResolvedValue(Response.json(dialFixture)),
