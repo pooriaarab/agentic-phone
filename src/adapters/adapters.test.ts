@@ -145,6 +145,12 @@ describe("telnyx", () => {
       connection_id: "connection",
       to: input.to,
       from: input.from,
+      assistant: {
+        id: input.assistantId,
+        instructions: `${input.disclosure}\n\n${input.script}`,
+        greeting: input.disclosure,
+        voice_settings: { voice: input.voice },
+      },
     });
   });
   test("HTTP failure carries status", async () => {

@@ -73,7 +73,7 @@ Scope checked on 2026-10-14 against [Vapi documentation](https://docs.vapi.ai/qu
 | Vapi | ✓ | `VAPI_API_KEY` | `assistantId`, `phoneNumberId` | Stored assistant; request script and disclosure are not forwarded |
 | Bland AI | ✓ | `BLAND_API_KEY` | None beyond common inputs | Disclosure prepended to task; recording requested |
 | Retell AI | ✓ | `RETELL_API_KEY` | `from` | Stored agent; disclosure sent as metadata, script not forwarded |
-| Telnyx | ✓ | `TELNYX_API_KEY` | `from`, `connectionId` | Dial only; script and disclosure are not forwarded |
+| Telnyx | ✓ | `TELNYX_API_KEY` | `from`, `connectionId`, `assistantId` | AI assistant call; script, disclosure, and voice forwarded per call |
 | Dry | Local preview | None | None | No network request |
 
 The dispatcher contains four live adapters and one dry adapter. None are scaffold-only.
@@ -100,6 +100,39 @@ Twilio is not a direct adapter. Vapi can reference a Twilio-imported number thro
 
 The SDK exports `placeCall`, `createCallGuards`, `provisionTelnyxNumber`, vendor adapters, consent helpers, and core logging and cost helpers.
 The SDK uses Node.js filesystem APIs for its local log.
+
+The `agentic-phone/adapters` subpath is the edge-safe surface: plain `fetch`,
+no filesystem, no `process.env` reads, and no `agentic-core` import, so it
+bundles for Cloudflare Workers without `nodejs_compat`. Keys arrive as
+arguments, never from the environment:
+
+```ts
+import { TelnyxPhoneAdapter } from 'agentic-phone/adapters';
+
+const telnyx = new TelnyxPhoneAdapter({ apiKey: env.TELNYX_API_KEY });
+const placed = await telnyx.placeCall({
+  to: '+12025550123',
+  from: '+16042399409',
+  connectionId: env.TELNYX_CONNECTION_ID,
+  assistantId: env.TELNYX_ASSISTANT_ID,
+  script: 'Your appointment is tomorrow.',
+  disclosure: 'I am an AI assistant.',
+  voice: 'Telnyx.KokoroTTS.af_heart',
+  maxDurationSec: 600,
+});
+// placed.providerCallId is the Telnyx call_control_id; callLegId and
+// callSessionId identify the leg for transcript and cost lookups.
+```
+
+Each `PhoneAdapter` also exposes `transcript`, `liveJoin`, and `callCost`.
+Telnyx resolves the conversation over `GET /v2/ai/conversations` filtered by
+`metadata->call_control_id`, then reads its `messages`; `liveJoin` bridges a
+second call leg (`supervisorCallControlId`), since Telnyx has no single-call
+barge-in; `callCost` sums the `call-control` and `ai-voice-assistant` detail
+records, and returns `null` until Telnyx posts them after the call.
+`DryPhoneAdapter`, `VapiPhoneAdapter`, `BlandPhoneAdapter`, and
+`RetellPhoneAdapter` share the interface; outputs a vendor does not support
+return `null` or `{ status: 'unsupported' }`.
 CLI commands are `call`, `provision`, `log`, `costs`, `mcp`, `help`, and `version`.
 Use `--help` or `-h` for flags; `--version` or `-V` prints the version.
 `call` accepts either `--script` or `--file`.
@@ -112,7 +145,7 @@ The source Worker exposes `GET /health` and preview-only `POST /preview`; it has
 
 A live call requires explicit recipient-call authorization, a vendor key, a non-dry vendor, and `live: true` or `--live`.
 The package checks a nonblank disclosure field, not legal consent or whether the recipient hears it.
-Configure Vapi and Retell AI agents to speak the disclosure. Telnyx speech needs separate Call Control commands.
+Configure Vapi and Retell AI agents to speak the disclosure. Telnyx sends the disclosure as the assistant greeting, so it is spoken first.
 Requests time out after ten seconds. The HTTP helper has no automatic retry or deduplication.
 Check vendor state before retrying an uncertain dispatch.
 
@@ -135,7 +168,7 @@ npx agentic-phone log
 
 Vapi CLI calls require `--assistant` and `--phone-number-id`.
 Retell AI requires `--from`; `--agent` selects an override agent.
-Telnyx requires `--from` and `--connection-id`.
+Telnyx requires `--from`, `--connection-id`, and `--assistant`; `--voice` selects the per-call assistant voice.
 Bland AI accepts `--from` and `--voice`.
 Adapters and `placeCall` also accept an SDK `apiKey` override.
 
@@ -149,12 +182,24 @@ Expect `dryRun: true` and a `dry-order-` ID.
 Add `--live` only after authorizing the purchase and setting `TELNYX_API_KEY`.
 The SDK `provisionTelnyxNumber` accepts a `numbers` array and returns an order ID; it does not poll order status.
 
+### Picking a Telnyx voice
+
+The Telnyx `voice` argument maps to `assistant.voice_settings.voice` in the
+dial request. Telnyx voice ids follow `Telnyx.<model>.<voice>`; list them with
+`GET /v2/text-to-speech/voices?provider=telnyx`. `Telnyx.KokoroTTS.*` voices
+are the low-latency set (for example `Telnyx.KokoroTTS.af_heart` for English);
+`Telnyx.Ultra.<uuid>` voices are higher quality — copy the id from the voices
+response or the Portal voice library. For an ElevenLabs voice, pass the
+ElevenLabs voice id as `voice` plus `voiceApiKeyRef`, the identifier of a
+Telnyx integration secret that stores the ElevenLabs key. Omit `voice` to use
+the stored assistant's voice.
+
 - [Vapi voice assistant setup](https://docs.vapi.ai/quickstart/introduction)
 - [Retell AI agent setup](https://docs.retellai.com/general/introduction)
 
 ## Status
 
-Version 0.2.0 is pre-1.0; interfaces can change.
+Version 0.3.0 is pre-1.0; interfaces can change.
 [Report issues](https://github.com/pooriaarab/agentic-phone/issues) with reproducible inputs and redacted credentials.
 Public case studies are not yet published in this repository.
 
@@ -187,8 +232,9 @@ Retell AI provides the agent that conducts the conversation.
 
 ### Does agentic-phone speak my script through Telnyx?
 
-agentic-phone only submits a Telnyx dial request.
-Separate Call Control commands must handle speech after dialing.
+Yes. The dial request attaches a stored Telnyx AI assistant with per-call
+overrides: the script becomes the assistant instructions, and the disclosure
+opens the call as the greeting and also leads the instructions.
 
 ### Does agentic-phone prove consent?
 

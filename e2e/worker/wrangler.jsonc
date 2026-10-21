@@ -1,0 +1,5 @@
+{
+  "name": "agentic-phone-adapters-dryrun",
+  "main": "worker.ts",
+  "compatibility_date": "2026-10-01",
+}
